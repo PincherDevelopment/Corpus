@@ -1,0 +1,4 @@
+transformers
+requests
+python-telegram-bot
+discord.py
