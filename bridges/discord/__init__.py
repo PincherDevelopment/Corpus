@@ -14,9 +14,13 @@ class BotClient(discord.Client):
 
     async def on_message(self, msg):
         if msg.author.id != ALLOWED_USER_ID: return
-        if not msg.content: return
+        if not msg.clean_content: return
+        if type(msg.channel) == discord.TextChannel:
+            if not msg.reference: return
+            reference_message = await msg.channel.fetch_message(msg.reference.message_id)
+            if reference_message.author.id != self.user.id: return
 
-        txt = msg.content
+        txt = msg.clean_content
         responses = user_conversation(txt)
 
         while len(responses) > 0:
