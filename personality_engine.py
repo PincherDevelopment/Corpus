@@ -20,13 +20,12 @@ logger.info("Using personality %s (%s)" % (personality_id, personality_name))
 nl = "\n"
 initial_prompt = f'''[The following is a chat conversation between {user_name} and {personality_name}.]
 [{personality_data['description']}]
+
 {nl.join(['[%s]' % sentence.replace('{{user}}', user_name).replace('{{name}}', personality_name) for sentence in personality_data['additional_information']])}
 
 Example messages from {personality_name}:
 ###
-User: sample message
 {nl.join(['%s: %s' % (personality_name, sentence) for sentence in personality_data['example_messages']])}
-User: sample message
 ###
 
 '''
@@ -61,22 +60,36 @@ def set_generator(used_gen):
     generator = used_gen
 
 def user_conversation(txt):
-    add_to_chat_buffer(user_name, txt)
+    nudge_text = ""
+    if txt.startswith("[") and txt.endswith("]"):
+        nudge_text = "\n" + txt
+    elif txt.strip() != "/continue":
+        add_to_chat_buffer(user_name, txt)
 
     responses = []
+    while True:
+        send_to_gen = chat_buffer_to_string() + nudge_text + "\n" + personality_name + ":"
+        generations = generator.generate(send_to_gen, initial_prompt).splitlines()
+        semi_responses = []
 
-    send_to_gen = chat_buffer_to_string() + "\n" + personality_name + ":"
-    generations = generator.generate(send_to_gen, initial_prompt).splitlines()
+        logger.debug(generations)
+        
+        semi_responses.append(generations.pop(0).lstrip()) # Always a direct response.
 
-    logger.debug(generations)
-    
-    responses.append(generations.pop(0).lstrip()) # Always a direct response.
+        stop_generation = False
+        for gen in generations[0:-1]:
+            if not gen.startswith(personality_name + ":"):
+                stop_generation = True
+                break
+            semi_responses.append(gen[len(personality_name) + 2:])
 
-    # for gen in generations[:2]:
-    #     if not gen.startswith(personality_name + ":"): break
-    #     responses.append(gen[len(personality_name) + 2:])
+        for resp in semi_responses: 
+            if len(resp.strip()) > 0: 
+                add_to_chat_buffer(personality_name, resp)
+                responses.append(resp)
 
-    for resp in responses: add_to_chat_buffer(personality_name, resp)
+        if len(responses) >= personality_data["max_outputs"]: break
+        if stop_generation: break
 
     save_chat_buffer()
 
