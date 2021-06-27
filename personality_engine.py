@@ -64,7 +64,8 @@ def user_conversation(txt):
     if txt.startswith("[") and txt.endswith("]"):
         nudge_text = "\n" + txt
     elif txt.strip() != "/continue":
-        add_to_chat_buffer(user_name, txt)
+        for txt_part in txt.splitlines():
+            add_to_chat_buffer(user_name, txt_part)
 
     responses = []
     while True:
@@ -81,7 +82,9 @@ def user_conversation(txt):
             if not gen.startswith(personality_name + ":"):
                 stop_generation = True
                 break
-            semi_responses.append(gen[len(personality_name) + 2:])
+            response = gen[len(personality_name) + 2:].strip()
+            if response not in semi_responses:
+                semi_responses.append(response)
 
         for resp in semi_responses: 
             if len(resp.strip()) > 0: 
